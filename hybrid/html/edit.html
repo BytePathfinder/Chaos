@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>富文本编辑器</title>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="language" content="english">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" type="text/css" href="font/iconfont.css" />
+		<link rel="stylesheet" href="katex/katex.min.css" />
+		<link rel="stylesheet" href="highlight/styles/monokai-sublime.min.css" />
+		<link rel="stylesheet" href="Quill/quill.snow.css" />
+		<link rel="stylesheet" type="text/css" href="wuui/wu-ui/iconfont.css" />
+		<link rel="stylesheet" type="text/css" href="wuui/wu-ui/wu-ui.css" />
+		<link rel="stylesheet" href="editStyle.css" />
+		<style>
+			body {
+				height: 100vh;
+				width: 100vw;
+				overflow: hidden;
+			}
+
+			#app {
+				height: calc(100vh - 44px);
+				display: flex;
+				flex-direction: column;
+			}
+
+			#nav-bar {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+
+			#nav-bar>.back {
+				padding: 5px;
+			}
+
+			#nav-bar>.publish {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				padding: 5px;
+				margin-right: 5px;
+				background-color: tomato;
+				letter-spacing: 3px;
+			}
+
+			#toolbar-container {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				z-index: 999;
+			}
+
+			#editor-container {
+				width: 100vw;
+				flex: 1;
+			}
+		</style>
+
+	</head>
+	<body>
+		<div id="app" :style="editTopStyle">
+			<div id="nav-bar" @click="toolbarShow=false">
+				<div class="back" @click="backClick">
+					<img src="./image/back.png" width="20" alt="" srcset="">
+				</div>
+				<div class="publish" @click="publishClick">发布</div>
+			</div>
+			<div class="form">
+				<div class="form-box">
+					<div class="form-input" @click="toolbarShow=false">
+						<input placeholder="标题" type="text" v-model="title" />
+					</div>
+				</div>
+			</div>
+			<!-- 工具栏 -->
+			<div id="toolbar-container" v-show="toolbarShow">
+				<span class="ql-formats">
+					<button class="ql-bold"></button>
+					<button class="ql-italic"></button>
+					<button class="ql-underline"></button>
+					<button class="ql-header" value="1"></button>
+					<button class="ql-header" value="2"></button>
+					<button class="ql-blockquote"></button>
+					<select class="ql-align"></select>
+					<button class="ql-link"></button>
+					<!-- <button @click="uploadImageClick"><i class="iconfont icon-image"></i></button> -->
+					<!-- <button @click="uploadPicShow=true,editType=1"><i class="iconfont icon-image"></i></button> -->
+					<!-- <input type="file" accept="image/*"> -->
+				</span>
+			</div>
+
+			<!-- 富文本 -->
+			<div id="editor-container" @click="editorClick"></div>
+			<!-- 插入图片 -->
+			<div class="modal" :class="uploadPicShow?'show':''">
+				<div class="modal-bg" @click="uploadPicShow=false,linkUrl='',isLink=false">
+				</div>
+				<div class="modal-main">
+					<div class="modal-title">
+						插入图片
+						<a href="javascript:;" @click="uploadPicShow=false,linkUrl='',isLink=false">关闭</a>
+					</div>
+
+					<div class="modal-concent">
+						<div class="upload-tool">
+							<template v-if="isLink">
+								<div class="form">
+									<div class="form-box">
+										<div class="form-input">
+											<input placeholder="输入图片地址(需要http请求头)" type="text" v-model="linkUrl" />
+										</div>
+									</div>
+									<button type="button" style="background:#f57070"
+										@click="setFileLink('image')">插入图片</button>
+								</div>
+							</template>
+							<template v-if="!isLink">
+								<button type="button" style="background:#0081ff" @click="chooseImage()">本地上传</button>
+								<button type="button" style="background:#f57070" @click="isLink=true">远程链接</button>
+							</template>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script type="text/javascript" src="vue.js"></script>
+		<script type="text/javascript" src="axios.js"></script>
+		<script type="text/javascript" src="uni.webview.1.5.4.js"></script>
+		<script type="text/javascript" src="wuui/wu-ui/wu-ui.js"></script>
+		<script type="text/javascript" src="qs.js"></script>
+
+
+		<script>
+			const request = axios.create({
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded'
+				}
+			});
+			var quill;
+			var wu = new Wu()
+
+			function getQuery(name) {
+				let reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+				let r = window.location.search.substr(1).match(reg);
+				if (r != null) {
+					return decodeURIComponent(r[2]);
+				}
+				return null;
+			}
+			var app = new Vue({
+				el: '#app',
+				data: {
+					editType: 0,
+					loading: false,
+					title: "",
+					categoryShow: false,
+					tagsShow: false,
+					type: "add",
+					cid: 0,
+					isSpace: false,
+					isDraft: false,
+					categoryList: [],
+					tagList: [],
+					curNum: 0,
+					shopList: [],
+					curTagNum: 0,
+					curCategory: [],
+					curTag: [],
+					shopPice: '',
+					searchText: "",
+					tagsText: "",
+					uploadPicShow: false,
+					uploadVideoShow: false,
+					uploadMusicShow: false,
+					uploadFileShow: false,
+					expandShow: false,
+					shopShow: false,
+					isLink: false,
+					linkUrl: "",
+					linkName: "",
+					file: null,
+					inputElement: null,
+					editTopStyle: "",
+					env: "H5",
+					selectionIndex: 0,
+
+					toolbarShow: false,
+
+				},
+				created() {
+					var that = this;
+					console.log("VUE载入完成");
+				},
+				destroyed() {
+					var that = this;
+				},
+				mounted() {
+					// 维护fixed，兼容ios、android
+					var bottomBar = document.getElementById("toolbar-container");
+					var viewport = window.visualViewport;
+
+					function viewportHandler() {
+						var layoutViewport = document.getElementById("app");
+
+						// Since the bar is position: fixed we need to offset it by the visual
+						// viewport's offset from the layout viewport origin.
+						var offsetLeft = viewport.offsetLeft;
+						var offsetTop = viewport.height -
+							layoutViewport.getBoundingClientRect().height +
+							viewport.offsetTop;
+
+						// You could also do this by setting style.left and style.top if you
+						// use width: 100% instead.
+						bottomBar.style.transform = 'translate(' +
+							offsetLeft + 'px,' +
+							offsetTop + 'px) ' +
+							'scale(' + 1 / viewport.scale + ')'
+					}
+					window.visualViewport.addEventListener('scroll', viewportHandler);
+					window.visualViewport.addEventListener('resize', viewportHandler);
+
+					// 维护顶部状态栏
+					var that = this;
+					var timer = setTimeout(function() {
+						that.loading = true;
+					}, 500)
+					console.log("传入数据：" + getQuery('data'))
+					var data = JSON.parse(getQuery('data'));
+					if (data != null) {
+						that.apiUrl = data.apiUrl;
+						that.cid = data.id;
+						that.uid = data.uid;
+						that.token = data.token;
+						that.type = data.type;
+						that.env = data.env;
+						that.verifyLevel = data.verifyLevel,
+							that.kaptchaUrl = data.apiUrl + "typechoUsers/getKaptcha"
+					}
+					if (that.type == 'edit') {
+						that.getInfo();
+						that.getPaid();
+					}
+					if (that.env == 'H5') {
+						console.log("当前是H5环境，paddingTop:44px");
+						that.editTopStyle = "padding-top:44px"
+					}
+					that.getTaglist();
+					that.getShoplist();
+					that.getCategorylist();
+
+				},
+				methods: {
+					// 点击工具栏上传图片图标
+					uploadImageClick() {
+						this.uploadPicShow = true;
+						this.editType = 1;
+						this.toolbarShow = false;
+					},
+					// 返回
+					backClick() {
+						console.log("返回");
+						uni.navigateBack();
+					},
+					// 发布
+					publishClick() {
+						console.log("发布");
+					},
+					// 编辑器获得焦点
+					editorFocus() {
+						console.log("编辑器获得焦点");
+						this.toolbarShow = true;
+						console.log("显示工具栏");
+					},
+					editorClick() {
+						this.toolbarShow = true;
+						console.log("编辑器被点击");
+					},
+					// 编辑器获得焦点
+					editorBlur() {
+						console.log("编辑器失去焦点");
+						this.toolbarShow = false;
+						console.log("隐藏工具栏");
+					},
+					qs(json) {
+						json = window.Qs.stringify(json);
+						return json;
+					},
+					back() {
+						var that = this;
+						if (that.env == 'H5') {
+							localStorage.setItem('goBack', "1");
+						} else {
+							var params = {
+								"type": "back",
+								"data": 1
+							}
+							//如果是APP则调用外部的存储
+							uni.postMessage({
+								data: params
+							});
+						}
+					},
+					reloadCode() {
+						var that = this;
+						var kaptchaUrl = that.apiUrl + "typechoUsers/getKaptcha";
+						var num = Math.ceil(Math.random() * 10);
+						kaptchaUrl += "?" + num;
+						that.kaptchaUrl = kaptchaUrl;
+					},
+					removeObjectEmptyKey(json) {
+						var value;
+						for (var key in json) {
+							if (json.hasOwnProperty(key)) {
+								value = json[key];
+								if (value === undefined || value === '' || value === null) {
+									delete json[key]
+								}
+							}
+						}
+						return json;
+					},
+					searchTags() {
+						var that = this;
+						var tagList = that.tagList;
+						for (var i in tagList) {
+							tagList[i].active = 0;
+						}
+						that.tagList = tagList;
+						that.getTaglist();
+					},
+					getTaglist() {
+						var that = this;
+						var params = {
+							"type": "tag"
+						}
+						var data = {
+							"searchParams": JSON.stringify(params),
+							"limit": 100,
+							"page": 1,
+							"order": "order",
+							"searchKey": that.tagsText,
+						}
+						var url = that.apiUrl + 'typechoMetas/metasList';
+
+						//console.log(JSON.stringify(url));
+						request.post(url, that.qs(data)).then(function(res) {
+							if (res.data.code == 1) {
+								var tagList = res.data.data;
+								for (var i in tagList) {
+									tagList[i].active = 0;
+								}
+								that.tagList = tagList;
+							}
+
+						}).catch(function(error) {
+							console.log(error);
+						});
+					},
+					searchCategory() {
+						var that = this;
+						var categoryList = that.categoryList;
+						for (var i in categoryList) {
+							categoryList[i].active = 0;
+						}
+						that.categoryList = categoryList;
+						that.getCategorylist();
+					},
+					getCategorylist() {
+						var that = this;
+						var params = {
+							"type": "category"
+						}
+						var data = {
+							"searchParams": JSON.stringify(params),
+							"limit": 100,
+							"page": 1,
+							"order": "order",
+							"searchKey": that.searchText,
+						}
+						var url = that.apiUrl + 'typechoMetas/metasList';
+
+						//console.log(JSON.stringify(url));
+						request.post(url, that.qs(data)).then(function(res) {
+							if (res.data.code == 1) {
+								var categoryList = res.data.data;
+								for (var i in categoryList) {
+									categoryList[i].active = 0;
+								}
+								that.categoryList = categoryList;
+							}
+
+						}).catch(function(error) {
+							console.log(error);
+						});
+					},
+
+					toCategoryContents(title, id, index) {
+						var that = this;
+
+						if (that.categoryList[index].active == 1) {
+							that.curTagNum--;
+							that.categoryList[index].active = 0;
+						} else {
+							if (that.curTagNum > 1) {
+								// uni.showToast({
+								// 	title: "最多选择三个分类",
+								// 	icon: 'none'
+								// });
+								wu.showToast({
+									title: '最多选择两个分类',
+									mask: false,
+									icon: 'icon-info',
+									duration: 3000
+								});
+								return false;
+							}
+							that.curTagNum++;
+							that.categoryList[index].active = 1;
+						}
+						var curCategory = [];
+						var categoryList = that.categoryList;
+						for (var i in categoryList) {
+							if (categoryList[i].active == 1) {
+								curCategory.push(categoryList[i]);
+							}
+						}
+						that.curCategory = curCategory;
+
+					},
+					toTagContents(title, id, index) {
+						var that = this;
+
+						if (that.tagList[index].active == 1) {
+							that.curNum--;
+							that.tagList[index].active = 0;
+						} else {
+							if (that.curNum > 4) {
+								wu.showToast({
+									title: '最多选择五个标签',
+									mask: false,
+									icon: 'icon-info',
+									duration: 3000
+								});
+								return false;
+							}
+							that.curNum++;
+							that.tagList[index].active = 1;
+						}
+						var curTag = [];
+						var tagList = that.tagList;
+						for (var i in tagList) {
+							if (tagList[i].active == 1) {
+								curTag.push(tagList[i]);
+							}
+						}
+						that.curTag = curTag;
+
+					},
+					contentsAdd() {
+						var that = this;
+						if (that.title == "") {
+							wu.showToast({
+								title: '请输入正确的参数',
+								mask: false,
+								icon: 'icon-info',
+								duration: 3000
+							});
+							return false
+						}
+						if (that.curCategory.length == 0) {
+							wu.showToast({
+								title: '请选择分类',
+								mask: false,
+								icon: 'icon-info',
+								duration: 3000
+							});
+							return false
+						}
+						var isSpace = 0;
+						if (that.isSpace) {
+							isSpace = 1;
+						}
+						var category = "";
+						var curCategory = that.curCategory;
+						for (var i in curCategory) {
+							if (curCategory[i].active == 1) {
+								category += "," + curCategory[i].mid;
+							}
+						}
+						var tag = "";
+						if (that.curTag.length > 0) {
+							var curTag = that.curTag;
+							for (var i in curTag) {
+								if (curTag[i].active == 1) {
+									tag += "," + curTag[i].mid;
+								}
+							}
+						}
+						var params = {
+							'title': that.title,
+							'category': category,
+							'tag': tag,
+							'sid': that.shopID
+						}
+						var text = quill.root.innerHTML;
+
+
+
+
+						var isDraft = 0;
+						if (that.isDraft) {
+							isDraft = 1;
+						}
+
+						var data = {
+							"params": JSON.stringify(that.removeObjectEmptyKey(params)),
+							"token": that.token,
+							'text': text,
+							"isSpace": isSpace,
+							"isDraft": isDraft,
+							"isMd": 0,
+						}
+						//付费阅读支持
+						var isPaid = 0;
+						if (that.isPaid) {
+							isPaid = 1;
+							var shopText = shopQuill.root.innerHTML;
+							if (that.shopPice == "") {
+								wu.showToast({
+									title: '请输入付费阅读价格',
+									mask: false,
+									icon: 'icon-info',
+									duration: 3000
+								});
+								return false
+							}
+							data.isPaid = isPaid;
+							data.shopText = shopText;
+							data.shopPice = that.shopPice;
+						}
+
+						wu.showLoading();
+						var url = that.apiUrl + 'typechoContents/contentsAdd';
+						request.post(url, that.qs(data)).then(function(res) {
+							setTimeout(function() {
+								wu.hideToast();
+							}, 1000);
+							if (res.data.code == 1) {
+								wu.showToast({
+									title: res.data.msg,
+									mask: false,
+									icon: 'icon-success',
+									duration: 3000
+								});
+								setTimeout(function() {
+									that.back();
+								}, 1000)
+							} else {
+								wu.showToast({
+									title: res.data.msg,
+									mask: false,
+									icon: 'icon-error',
+									duration: 3000
+								});
+							}
+
+						}).catch(function(error) {
+							setTimeout(function() {
+								wu.hideToast();
+							}, 1000);
+							wu.showToast({
+								title: '网络开小差了哦',
+								mask: false,
+								icon: 'icon-info',
+								duration: 3000
+							});
+						});
+					},
+					replaceAll(string, search, replace) {
+						return string.split(search).join(replace);
+					},
+					isString(obj) {
+						return typeof obj === 'string';
+					},
+					getInfo() {
+						var that = this;
+						var token = "";
+						var data = {
+							"key": that.cid,
+							"token": that.token,
+						}
+						var url = that.apiUrl + 'typechoContents/contentsInfo';
+						request.post(url, that.qs(data)).then(function(res) {
+							if (res.data.title) {
+
+								that.title = res.data.title;
+								if (res.data.category.length > 0) {
+									var curCategory = res.data.category;
+									for (var i in curCategory) {
+										curCategory[i].active = 1;
+									}
+									that.curCategory = curCategory;
+								}
+								if (res.data.tag.length > 0) {
+									var curTag = res.data.tag;
+									for (var t in curTag) {
+										curTag[t].active = 1;
+									}
+									that.curTag = curTag;
+								}
+								var text = res.data.text;
+
+								var delta = quill.clipboard.convert(text);
+								var ops = delta.ops;
+								//去除多余的换行
+								for (var o in ops) {
+									if (that.isString(ops[o].insert)) {
+										ops[o].insert = that.replaceAll(ops[o].insert, "\n\n", "\n");
+									}
+
+								}
+								delta.ops = ops;
+
+								quill.setContents(delta);
+							}
+
+						}).catch(function(error) {
+							console.log(error);
+							wu.showToast({
+								title: '网络开小差了哦',
+								mask: false,
+								icon: 'icon-info',
+								duration: 3000
+							});
+						});
+
+					},
+
+					formatDate(datetime) {
+						var datetime = new Date(parseInt(datetime * 1000));
+						var year = datetime.getFullYear(),
+							month = ("0" + (datetime.getMonth() + 1)).slice(-2),
+							date = ("0" + datetime.getDate()).slice(-2),
+							hour = ("0" + datetime.getHours()).slice(-2),
+							minute = ("0" + datetime.getMinutes()).slice(-2);
+						var result = year + "-" + month + "-" + date + " " + hour + ":" + minute;
+						return result;
+					},
+
+					//上传的相关方法
+					chooseImage() {
+						var that = this;
+						if (this.inputElement) {
+							// 如果 inputElement 已存在，移除之前的元素
+							this.inputElement.remove();
+						}
+
+						this.inputElement = document.createElement('input');
+						this.inputElement.type = 'file';
+						this.inputElement.accept = 'image/*'; // 只接受图片文件
+
+						this.inputElement.addEventListener('change', (event) => {
+							const file = event.target.files[0];
+							if (this.isImageFile(file)) {
+								this.file = file;
+								that.uploadFile("image");
+							} else {
+								// 非图片文件，进行错误处理
+								wu.showToast({
+									title: '请选择图片文件',
+									mask: false,
+									icon: 'icon-error',
+									duration: 3000
+								});
+							}
+
+							// 选择文件后销毁 inputElement
+							this.inputElement.remove();
+							this.inputElement = null;
+						});
+
+						this.inputElement.click();
+					},
+
+
+					chooseFile() {
+						var that = this;
+						if (this.inputElement) {
+							this.inputElement.remove();
+						}
+
+						this.inputElement = document.createElement('input');
+						this.inputElement.type = 'file';
+						this.inputElement.accept =
+							'.zip,.rar,.ipa,.apk,.txt,.pdf,application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+
+						this.inputElement.addEventListener('change', (event) => {
+							const file = event.target.files[0];
+							if (this.isDocumentFile(file)) {
+								this.file = file;
+								that.uploadFile("file");
+							} else {
+								wu.showToast({
+									title: '请选择文档文件',
+									mask: false,
+									icon: 'icon-error',
+									duration: 3000
+								});
+							}
+
+							this.inputElement.remove();
+							this.inputElement = null;
+						});
+
+						this.inputElement.click();
+					},
+					// todo 待修改 
+					uploadFile(type) {
+						var that = this;
+						if (that.file) {
+							// 上传文件到服务器
+							const fileName = that.file.name;
+							const formData = new FormData();
+
+							formData.append('file', that.file);
+							formData.append('token', that.token);
+							var url = that.apiUrl + 'upload/full';
+							wu.showLoading();
+							//console.log(JSON.stringify(url));
+							request.post(url, formData).then(function(res) {
+								setTimeout(function() {
+									wu.hideToast();
+								}, 1000);
+								if (res.data.code == 1) {
+									var url = res.data.data.url;
+									var selectionIndex = that.selectionIndex;
+									var curQuill = quill;
+									if (that.editType == 2) {
+										curQuill = shopQuill;
+									}
+									if (type == "image") {
+
+										curQuill.insertEmbed(selectionIndex, "image", url);
+									}
+									if (type == "video") {
+										//调用自定义的方法
+										curQuill.insertEmbed(selectionIndex, 'simpleVideo', {
+											url,
+											controls: 'controls',
+											width: '100%',
+											height: 'auto'
+										})
+									}
+									if (type == "audio") {
+										//调用自定义的方法
+										curQuill.insertEmbed(selectionIndex, "audio", {
+											url: url
+										});
+									}
+									if (type == "file") {
+										//调用自定义的方法
+										curQuill.insertEmbed(selectionIndex, 'link', {
+											href: url,
+											innerText: fileName
+										}, "api")
+									}
+									wu.showToast({
+										title: "上传成功",
+										mask: false,
+										icon: 'icon-success',
+										duration: 3000
+									});
+
+								} else {
+									wu.showToast({
+										title: '上传失败，请检测网络或接口配置',
+										mask: false,
+										icon: 'icon-error',
+										duration: 3000
+									});
+								}
+
+							}).catch(function(error) {
+								console.log(error);
+								wu.showToast({
+									title: '上传失败，请检测网络',
+									mask: false,
+									icon: 'icon-error',
+									duration: 3000
+								});
+							});
+						} else {
+							wu.showToast({
+								title: '请选择文件',
+								mask: false,
+								icon: 'icon-error',
+								duration: 3000
+							});
+						}
+					},
+					isImageFile(file) {
+						const acceptedImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
+						return acceptedImageTypes.includes(file.type);
+					},
+					isVideoFile(file) {
+						const acceptedVideoTypes = ['video/mp4'];
+						return acceptedVideoTypes.includes(file.type);
+					},
+					isAudioFile(file) {
+						const acceptedAudioTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3'];
+						return acceptedAudioTypes.includes(file.type);
+					},
+					isDocumentFile(file) {
+						const acceptedTypes = [
+							'text/plain',
+							'application/pdf',
+							'application/msword',
+							'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+							'application/vnd.ms-excel',
+							'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+							'application/vnd.ms-powerpoint',
+							'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+							'application/zip',
+							'application/x-rar-compressed',
+							'application/vnd.android.package-archive' // 添加 .apk 文件类型
+						];
+
+						// 获取文件名的后缀
+						const fileExtension = file.name.split('.').pop();
+						if (fileExtension === 'ipa' || fileExtension === 'rar') {
+							return true;
+						}
+
+						return acceptedTypes.includes(file.type);
+					},
+					setFileLink(type) {
+						var that = this;
+						if (that.linkUrl == '') {
+							wu.showToast({
+								title: '请输入链接',
+								mask: false,
+								icon: 'icon-error',
+								duration: 3000
+							});
+						}
+						if (type == "link") {
+
+							if (that.linkName == '') {
+								wu.showToast({
+									title: '请输入超链接名称',
+									mask: false,
+									icon: 'icon-error',
+									duration: 3000
+								});
+							}
+						}
+						var url = that.linkUrl;
+						var selectionIndex = that.selectionIndex;
+						var curQuill = quill;
+						if (that.editType == 2) {
+							curQuill = shopQuill;
+						}
+						if (type == "image") {
+
+							curQuill.insertEmbed(selectionIndex, "image", url);
+						}
+						if (type == "video") {
+							//调用自定义的方法
+							// quill.insertEmbed(length, "video", url);
+							curQuill.insertEmbed(selectionIndex, 'simpleVideo', {
+								url,
+								controls: 'controls',
+								width: '100%',
+								height: 'auto'
+							})
+						}
+						if (type == "audio") {
+							//调用自定义的方法
+							curQuill.insertEmbed(selectionIndex, "audio", {
+								url: url
+							});
+						}
+						if (type == "link") {
+							curQuill.insertEmbed(selectionIndex, 'link', {
+								href: url,
+								innerText: that.linkName
+							}, "api")
+						}
+
+					},
+
+
+				}
+			})
+		</script>
+		<script src="katex/katex.min.js"></script>
+		<script src="highlight/highlight.min.js"></script>
+		<script src="Quill/quill.min.js"></script>
+		<script>
+			//视频自定义
+			const BlockEmbed = Quill.import('blots/block/embed')
+			class VideoBlot extends BlockEmbed {
+				static create(value) {
+					let node = super.create()
+					node.setAttribute('src', value.url)
+					node.setAttribute('controls', value.controls)
+					node.setAttribute('width', value.width)
+					node.setAttribute('height', value.height)
+					node.setAttribute('webkit-playsinline', true)
+					node.setAttribute('playsinline', true)
+					node.setAttribute('x5-playsinline', true)
+					return node;
+				}
+
+				static value(node) {
+					return {
+						url: node.getAttribute('src'),
+						controls: node.getAttribute('controls'),
+						width: node.getAttribute('width'),
+						height: node.getAttribute('height')
+					};
+				}
+			}
+			VideoBlot.blotName = 'simpleVideo'
+			VideoBlot.tagName = 'video'
+			Quill.register(VideoBlot);
+			//音频自定义
+			class AudioBlot extends BlockEmbed {
+				static create(value) {
+					let node = super.create();
+					node.setAttribute('src', value.url); //设置audio的src属性
+					node.setAttribute('controls', true); //设置audio的controls，否则他将不会显示
+					node.setAttribute('controlsList', 'nodownload'); //设置audio的下载功能为不能下载
+					node.setAttribute('id', 'voice'); //设置一个id
+					return node;
+				}
+			}
+			AudioBlot.blotName = 'audio';
+			AudioBlot.tagName = 'audio';
+			Quill.register(AudioBlot);
+
+			const Link = Quill.import("formats/link");
+			// 自定义a链接
+			class FileBlot extends Link {
+				// 继承Link Blot
+				static create(value) {
+					let node = undefined;
+					if (value && !value.href) {
+						// 适应原本的Link Blot
+						node = super.create(value)
+					} else {
+						// 自定义Link Blot
+						node = super.create(value.href)
+						node.href = value.href
+						node.innerText = value.innerText
+						// node.setAttribute('download', value.innerText);  // 左键点击即下载
+					}
+					return node;
+				}
+			}
+			FileBlot.blotName = "link" // 这里不用改，如果需要也可以保留原来的，这里用个新的blot
+			FileBlot.tagName = "A"
+			Quill.register(FileBlot) // 注册link
+			//vue渲染完后再开启编辑器渲染
+			quill = new Quill('#editor-container', {
+				modules: {
+					formula: true,
+					syntax: true,
+					toolbar: '#toolbar-container'
+				},
+				placeholder: '开始书写',
+				theme: 'snow'
+			});
+			quill.on('text-change', function(delta, oldDelta, source) {
+				//实时获取光标位置
+				let selection = quill.getSelection(true);
+				app.selectionIndex = selection.index;
+			});
+		</script>
+	</body>
+</html>
