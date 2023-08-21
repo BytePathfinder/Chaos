@@ -1,5 +1,8 @@
-import moment from "./moment.js";
-
+// // 引入moment.js
+// (function addScript(url) {
+// 	console.log("引入js：", url);
+// 	document.write("<script language=javascript src=" + url + "></script>");
+// })("./moment.js");
 /**
  * 
  *  上传文件到七牛云
@@ -15,6 +18,7 @@ let timeoutHolder;
  * callback：上传完成后的回调函数，第一个入参为图片远程地址
  */
 const qiniuUpload = async (imageResource, callback) => {
+	console.log(JSON.stringify(imageResource));
 	let filePath = imageResource.tempFilePaths[0];
 	let file = imageResource.tempFiles[0];
 	// console.log("imageResource extract: ", filePath, file);
@@ -54,4 +58,3 @@ const qiniuUpload = async (imageResource, callback) => {
 
 	}, 1000);
 }
-export default qiniuUpload;

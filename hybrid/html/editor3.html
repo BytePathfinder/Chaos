@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport"
+			content="'width=device-width, initial-scale=1.0,minimum-scale=1.0, maximum-scale=1.0, user-scalable=no'">
+		<title>富文本编辑器</title>
+		<link rel="stylesheet" href="Quill/quill.snow.css" />
+		<style>
+			* {
+				padding: 0;
+				margin: 0;
+			}
+
+			html,
+			body,
+			.page {
+				height: 100%;
+			}
+
+			.page {
+				overflow: auto;
+				padding-top: 80px;
+				padding-bottom: 50px;
+				box-sizing: border-box;
+				background-color: firebrick;
+			}
+
+			.fixed {
+				position: fixed;
+				top: 0;
+				right: 0;
+				height: 80px;
+				width: 50vw;
+				background-color: turquoise;
+			}
+
+			input {
+				width: 50vw;
+				height: 1000px;
+				background-color: beige;
+			}
+
+			.toolbar {
+				position: fixed;
+				height: 50px;
+				width: 50vw;
+				bottom: 0;
+				right: 0;
+				background-color: green;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="page">
+			<!--这个可以写在page外面-->
+			<div class="fixed">这是fixed顶部的内容栏</div>
+			<!--这个是内容占位，用于顶部内容区增高-->
+			<div class="prefix-placeholder"></div>
+			<div>
+				<div class="editor">
+					<input type="text">
+				</div>
+			</div>
+			<!--这个是内容占位，用于底部内容区增高-->
+			<div class="suffix-placeholder"></div>
+			<div class="toolbar">工具栏</div>
+		</div>
+		<script>
+			////////////////////////////////////////////////////////
+			//                     顶部导航吸顶                    //
+			////////////////////////////////////////////////////////
+			(function softKeyboardHandler1() {
+
+				var page = document.querySelector('.page')
+				var prePlace = document.querySelector('.prefix-placeholder')
+				var sufPlace = document.querySelector('.suffix-placeholder')
+				var fixedEle = document.querySelector('.fixed')
+				var currentInput = null // 当前聚焦的输入框
+				var keyboardHeight = 0 // 软键盘高度
+				// 初始化的时候就要记录了，因为这里有个很奇怪的现象，ios软键盘出现后，window.innerHeight会随着webview自身的滚动而变化，用document.documentElement.offsetHeight和window.visualViewport.height 也是，不知道是什么影响了。
+				var height = window.innerHeight
+				var startMove = false // 记录是否发生了滑动手势
+
+				function handleTouchmove() {
+					startMove = true
+					page.addEventListener('touchend', handleTouchend)
+				}
+
+				function handleTouchend() {
+					startMove = false
+					page.removeEventListener('touchend', handleTouchend)
+				}
+
+				// webview发生平移，则及时更新fixed元素的定位
+				function handleWdinowScroll() {
+					// 当平移时H5的内容已经滚动到顶部或底部，且 是因为发生滑动手势引起的scroll事件，此时就输入框失焦收起软键盘
+					// 聚焦到输入框也会引起scroll事件，所以要加startMove区分开是滑动手势引起的
+					if ((page.scrollTop === 0 || page.scrollTop + page.clientHeight >= page.scrollHeight) && startMove) {
+						return triggerBlur()
+					}
+					// 这里计算一次是为了这里可能比handleFocus先执行
+					const max = keyboardHeight || height - window.visualViewport.height
+					// IOS回弹效果时不要改变定位
+					if (window.pageYOffset <= max && window.pageYOffset >= 0) {
+						// 聚焦输入框引起的平移
+						fixedEle.style.top = window.pageYOffset + 'px'
+					}
+				}
+
+				// 当页面里的输入框聚焦时（随后会出现软键盘）
+				function handleFocusin(e) {
+					var el = e || window.event
+					currentInput = el.target
+					// 延迟是为了确保软键盘出来后才开始计算，因为软键盘出来有个过程动画
+					setTimeout(() => {
+						// 计算过就不用再计算了，一般软键盘的高度是固定的，这样做还有一个顾虑：有些情况下，滚动的时候window.innerHeight和visualViewport.height还会变化，不能如实反馈，因此减少多次计算。
+						keyboardHeight || (keyboardHeight = height - window.visualViewport.height)
+						// 底部增高
+						sufPlace.style.height = keyboardHeight - window.pageYOffset + 'px'
+						// 顶部增高
+						prePlace.style.height = window.pageYOffset + 'px'
+						// 因为增高的缘故，需要及时更新滚动位置，保持原本理应展示的位置
+						page.scrollTop += window.pageYOffset
+					}, 100)
+					// 因为上一个聚焦的输入框因为失焦导致top置为0了，如果新聚焦的输入框不会触发webview平移，则沿用当时的位移就好了
+					fixedEle.style.top = window.pageYOffset + 'px'
+					// 添加滚动监听，为了软键盘出现 以及 从一个聚焦输入框聚焦到另外一个输入框时， 重新定位fixed元素（其实这里不用滚动事件监听变化也可以用setTimeout来更新定位）
+					window.addEventListener('scroll', handleWdinowScroll)
+					page.addEventListener('touchmove', handleTouchmove)
+				}
+
+				// 主动失焦
+				function triggerBlur() {
+					currentInput && currentInput.blur()
+				}
+
+				// 失焦时，重置一些数据
+				function handleBlur() {
+					currentInput = null
+					// 增高的都恢复到原样，即没有高度
+					sufPlace.style.height = 0
+					prePlace.style.height = 0
+					fixedEle.style.top = 0
+					startMove = false
+					window.removeEventListener('scroll', handleWdinowScroll)
+					page.removeEventListener('touchmove', handleTouchmove)
+				}
+
+				page.addEventListener('focusin', handleFocusin)
+				page.addEventListener('focusout', handleBlur)
+
+
+			})();
+		</script>
+
+	</body>
+</html>

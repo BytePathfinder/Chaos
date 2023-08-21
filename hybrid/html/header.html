@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport"
+			content="'width=device-width, initial-scale=1.0,minimum-scale=1.0, maximum-scale=1.0, user-scalable=no'">
+		<title>Header</title>
+	</head>
+	<body>
+		<!-- 固定定位 脱离文档流 -->
+		<view class="header">
+			<!-- 状态栏占位 -->
+			<view class="status-bar" :style="{paddingTop: statusBarHeight + 'px'}"></view>
+			<!-- 顶部导航栏 -->
+			<view class="nav-bar">
+				<!-- 顶部导航栏 -->
+				<div id="nav-bar" :style="{ height: 44 + 'px' }">
+					<!-- 左侧返回键 -->
+					<div id="backtrack">
+						<img src="./image/back.png" width="20" alt="" srcset="">
+					</div>
+					<!-- 右侧发布 -->
+					<div id="publish">
+						<!-- 发布 -->
+						<img src="./image/publish.png" width="20" alt="" srcset="">
+					</div>
+				</div>
+			</view>
+		</view>
+	</body>
+</html>

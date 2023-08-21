@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport"
+			content="'width=device-width, initial-scale=1.0,minimum-scale=1.0, maximum-scale=1.0, user-scalable=no'">
+		<title>富文本编辑器</title>
+		<link rel="stylesheet" href="../Quill/quill.snow.css" />
+		<style>
+			* {
+				padding: 0;
+				margin: 0;
+			}
+
+			html,
+			body,
+			#app {
+				width: 100vw;
+				height: 100%;
+			}
+
+			#app {
+				box-sizing: border-box;
+			}
+
+			#header {
+				position: fixed;
+				width: 100vw;
+				top: 0;
+				left: 0;
+				right: 0;
+				background-color: #fff;
+			}
+
+			#status-bar {
+				background-color: #fff;
+			}
+
+			#nav-bar {
+				display: flex;
+				flex-direction: row;
+				justify-content: space-between;
+				align-items: center;
+				background-color: #fff;
+			}
+
+			#nav-bar>#backtrack {
+				display: flex;
+				flex-direction: row;
+				justify-content: space-between;
+				align-items: center;
+				padding-left: 5px;
+			}
+
+			#nav-bar>#publish {
+				display: flex;
+				flex-direction: row;
+				justify-content: space-between;
+				align-items: center;
+				padding-right: 5px;
+			}
+
+			#main {
+				width: 100vw;
+				height: 100%;
+				box-sizing: border-box;
+			}
+
+			#main>#title {
+				height: 30px;
+				width: 100vw;
+			}
+
+			#main>#title>input {
+				box-sizing: border-box;
+				height: 30px;
+				width: 100vw;
+				padding-left: 15px;
+				border: none;
+				font-size: 16px;
+			}
+
+			#main>#title>input:focus {
+				border: none;
+				outline: none;
+			}
+
+			#main>#editor {
+				box-sizing: border-box;
+				width: 100vw;
+				height: calc(100% - 30px);
+				border: none;
+			}
+
+			#toolbar {
+				box-sizing: border-box;
+				width: 100vw;
+				height: 40px;
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				padding: 0;
+				margin: 0;
+				display: flex;
+				flex-direction: row;
+				justify-content: space-evenly;
+				align-items: center;
+				background-color: #282C35;
+				z-index: 999;
+			}
+
+			#toolbar>.ql-formats {
+				width: 100vw;
+				height: 40px;
+				padding: 0;
+				margin: 0;
+				display: flex;
+				flex-direction: row;
+				justify-content: space-evenly;
+				align-items: center;
+				background-color: #ffffff;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Vue绑定的容器 -->
+		<div id="app" :style="{ 'padding-bottom': '40px', 'padding-top': (statusBarHeight +  navBarHeight) + 'px' }">
+			<!-- 页眉 -->
+			<div id="header">
+				<!-- 状态栏 -->
+				<div id="status-bar" :style="{ 'padding-top': statusBarHeight + 'px' }"></div>
+				<!-- 顶部导航栏 -->
+				<div id="nav-bar" :style="{ height: navBarHeight + 'px' }">
+					<!-- 左侧返回键 -->
+					<div id="backtrack" @click="backtrack">
+						<img src="../image/back.png" width="20" alt="" srcset="">
+					</div>
+					<!-- 右侧发布 -->
+					<div id="publish" @click="publish">
+						<!-- 发布 -->
+						<img src="../image/publish.png" width="20" alt="" srcset="">
+					</div>
+				</div>
+			</div>
+
+			<!-- 正文 -->
+			<div id="main">
+				<!-- 标题 -->
+				<div id="title" @focusin="titleFocusin('title')">
+					<input type="text" v-model="title" placeholder="标题">
+				</div>
+				<!-- Quill绑定的容器 -->
+				<div id="editor" @focusin="editorFocusin('editor')" @focusout="editorFocusout"></div>
+			</div>
+
+			<!-- Quill绑定的工具栏容器 -->
+			<div id="toolbar" v-show="showToolbar">
+				<span class="ql-formats">
+					<button class="ql-bold"></button>
+					<button class="ql-italic"></button>
+					<button class="ql-underline"></button>
+					<button class="ql-header" value="1"></button>
+					<button class="ql-header" value="2"></button>
+					<button class="ql-blockquote"></button>
+					<button class="ql-link"></button>
+					<button class="ql-image"></button>
+					<button class="ql-undo" @click="undo">
+						<img src="../image/undo.png" width="18" alt="" srcset="">
+					</button>
+					<button class="ql-redo" @click="redo">
+						<img src="../image/redo.png" width="18" alt="" srcset="">
+					</button>
+				</span>
+			</div>
+
+		</div>
+		<!-- 引入vue2 -->
+		<script type="text/javascript" src="../vue.js"></script>
+		<!-- 引入axios -->
+		<script type="text/javascript" src="../axios.js"></script>
+		<!-- 引入webview -->
+		<script type="text/javascript" src="../uni.webview.1.5.4.js"></script>
+		<!-- 引入quill -->
+		<script type="text/javascript" src="../Quill/quill.js"></script>
+		<!-- 核心逻辑 -->
+		<script>
+			////////////////////////////////////////////////////////
+			//                        Vue                         //
+			////////////////////////////////////////////////////////
+
+			// todo 关闭生产提示，开发完成后应该使用vue.min.js
+			// Vue.config.productionTip = false;
+			var that;
+			var app = new Vue({
+				el: '#app',
+				data: {
+					statusBarHeight: 0,
+					navBarHeight: 0,
+					title: "",
+					content: "",
+					showToolbar: false,
+					currentCursor: null,
+					imageResource: null,
+					selectionIndex: 0,
+
+				},
+				created() {
+					that = this;
+					console.log("vue实例创建完成");
+				},
+				destroyed() {
+					that = this;
+					console.log("vue实例销毁完成");
+				},
+				mounted() {
+
+				},
+				methods: {
+					editorFocusin(currentCursor) {
+						this.showToolbar = true;
+						this.currentCursor = currentCursor;
+						console.log("editorFocusin", currentCursor, "selection.index:", this.selectionIndex);
+					},
+					editorFocusout() {
+						console.log("editorFocusout");
+					},
+					titleFocusin(currentCursor) {
+						this.showToolbar = false;
+						this.currentCursor = currentCursor;
+						console.log("editorFocusout", currentCursor);
+					},
+					keyboardUp() {
+						console.log("键盘弹起", this.currentCursor);
+						if (this.currentCursor === 'title') {
+							this.showToolbar = false;
+						} else if (this.currentCursor === 'editor') {
+							this.showToolbar = true;
+						}
+					},
+					keyboardDown() {
+						this.showToolbar = false;
+						console.log("键盘收起");
+					},
+					backtrack() {
+						uni.navigateBack();
+					},
+					publish() {
+						this.content = document.getElementById('editor').firstChild.innerHTML
+						console.log("title:", this.title);
+						console.log("content:", this.content);
+						alert(JSON.stringify({
+							title: this.title,
+							content: this.content
+						}))
+					},
+					undo() {
+						quill.history.undo();
+					},
+					redo() {
+						quill.history.redo();
+					},
+				}
+			});
+
+			////////////////////////////////////////////////////////
+			// 桥接就绪后，从uniapp中获取：状态栏高度、顶部导航栏高度 //
+			////////////////////////////////////////////////////////
+			document.addEventListener('UniAppJSBridgeReady', function() {
+				// h5向uniapp传递数据，在uniapp中利用@message中的方法接收
+				uni.postMessage({
+					data: {
+						action: 'statusBarAndNavBarHeight'
+					}
+				});
+				uni.getEnv(function(res) {
+					// alert('当前环境：' + JSON.stringify(res));
+				});
+			});
+			// 接受uniapp传递进来的数据
+			function getUniAppMessage(data) {
+				console.log("getUniAppMessage data:", JSON.stringify(data));
+				that.statusBarHeight = data[0]["statusBarHeight"];
+				that.navBarHeight = data[0]["navBarHeight"];
+			}
+
+			////////////////////////////////////////////////////////
+			//                        Quill                       //
+			////////////////////////////////////////////////////////
+			var quill = new Quill('#editor', {
+				modules: {
+					toolbar: '#toolbar',
+					history: {
+						delay: 2000,
+						maxStack: 500
+					}
+				},
+				placeholder: '开始书写',
+				theme: 'snow'
+			});
+			quill.on('text-change', function(delta, oldDelta, source) {
+				//实时获取光标位置
+				let selection = quill.getSelection(true);
+				app.selectionIndex = selection.index;
+				console.log('实时获取光标位置:', app.selectionIndex);
+			});
+
+			let toolbar = quill.getModule('toolbar')
+			// 自定义image处理逻辑
+			toolbar.addHandler('image', () => {
+				console.log("自定义image处理器，正在与uniapp通讯");
+				// 与uniapp通讯
+				uni.postMessage({
+					data: {
+						action: 'chooseImage'
+					}
+				});
+			});
+
+			function chooseImageNotice(data) {
+				console.log("收到图片信息:", JSON.stringify(data));
+				that.imageResource = data[0]["imageUrl"];
+				// 上传图片完成，准备展示到编辑器
+				console.log("上传图片完成，准备展示到编辑器", that.imageResource);
+				//调用insertEmbed 将图片插入到编辑器
+				selection = quill.getSelection(true);
+				console.log("selection:", selection);
+				quill.insertText(selection.index, " \n");
+				quill.insertEmbed(selection.index, "image", that.imageResource);
+				quill.insertText(selection.index, " \n");
+
+			};
+
+			////////////////////////////////////////////////////////
+			//                        软键盘                       //
+			////////////////////////////////////////////////////////
+			/**
+			 * 兼容Android、iOS各浏览器
+			 * H5键盘监控弹出（KeyboardUp）、收起（KeyboardDown）事件定义
+			 * 用法：
+			 * 与click事件的绑定用法无异，如：
+			    window.addEventListener("KeyboardUp",function() {
+			        //键盘弹起来了
+			    },false);
+			    window.addEventListener("KeyboardDown",function() {
+			        //键盘收起来了
+			    },false);
+			 *
+			 */
+			window.addEventListener("KeyboardUp", function() {
+				//键盘弹起来了
+				that.keyboardUp();
+			}, false);
+			window.addEventListener("KeyboardDown", function() {
+				//键盘收起来了
+				that.keyboardDown();
+			}, false);
+			(function(window) {
+				if (!window || !navigator) return;
+				var u = navigator.userAgent;
+				var isAndroid = u.indexOf('Android') > -1 || u.indexOf('Adr') > -1;
+				var isiOS = !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/);
+
+				var KeyboardUpEvent = document.createEvent("KeyboardEvent");
+				KeyboardUpEvent.initEvent("KeyboardUp", true, true);
+
+				var KeyboardDownEvent = document.createEvent("KeyboardEvent");
+				KeyboardDownEvent.initEvent("KeyboardDown", true, true);
+
+				if (isAndroid) {
+					console.log("键盘处理器：当前为安卓手机");
+					var originalHeight = document.documentElement.clientHeight || document.body.clientHeight;
+					window.onresize = function() {
+						var resizeHeight = document.documentElement.clientHeight || document.body.clientHeight;
+						if (resizeHeight - 0 < originalHeight - 0) {
+							document.dispatchEvent(KeyboardUpEvent);
+						} else {
+							document.dispatchEvent(KeyboardDownEvent);
+						}
+					}
+				} else if (isiOS) {
+					console.log("键盘处理器：当前为苹果手机");
+					document.body.addEventListener('focusin', () => {
+						document.dispatchEvent(KeyboardUpEvent);
+					})
+					document.body.addEventListener('focusout', () => {
+						document.dispatchEvent(KeyboardDownEvent);
+					})
+				} else {
+					throw "无法识别浏览器机型，请检查navigator.userAgent是否被重新定义过."
+				}
+			})(window);
+		</script>
+	</body>
+</html>
