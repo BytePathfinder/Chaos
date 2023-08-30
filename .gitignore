@@ -1,13 +1,17 @@
 # hbuilder
 .hbuilderx/
+
 # idea
 .idea/
+
 # uniapp
 unpackage/
+
 # nodejs
 node_modules/
 .project
 .DS_Store
+
 # 微信小程序
 wxcomponents/**/*.vue
 wxcomponents/**/*.css

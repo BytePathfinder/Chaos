@@ -93,6 +93,7 @@
 				console.log("请求轮播图");
 				uni.$get("https://front.xn--siqq3l8wxsrm.com/api/customer/ad/get")
 					.then(response => {
+						this.swiperList.splice(0);
 						for (let item of response.data) {
 							this.swiperList.push({
 								image: item["mediaPath"],
@@ -119,6 +120,8 @@
 				console.log("请求横向滚动列表");
 				uni.$get("https://front.xn--siqq3l8wxsrm.com/api/customer/column/get")
 					.then(response => {
+						// 清空
+						this.scrollList.splice(0);
 						let tempScrollList = [];
 						for (let item of response.data) {
 							tempScrollList.push({
@@ -202,7 +205,7 @@
 			setTimeout(() => {
 				console.log("刷新完毕");
 				uni.stopPullDownRefresh()
-			}, 3000)
+			}, 1000)
 		},
 		// 触底加载
 		onReachBottom() {

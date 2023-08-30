@@ -1,0 +1,134 @@
+* {
+	padding: 0;
+	margin: 0;
+}
+
+html,
+body,
+#app {
+	width: 100vw;
+	height: 100%;
+}
+
+#app {
+	/* background-color: firebrick; */
+}
+
+#header {
+	position: fixed;
+	width: 100vw;
+	top: 0;
+	left: 0;
+	right: 0;
+	background-color: #fff;
+	z-index: 999;
+}
+
+
+#nav-bar {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+}
+
+#backtrack {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	padding-left: 5px;
+}
+
+#nav-bar .tip {
+	display: flex;
+	width: auto;
+	justify-content: center;
+	align-items: center;
+	border: none;
+	margin: 0 10px;
+	color: green;
+	background-color: transparent;
+	font-size: 12px;
+
+}
+
+#publish {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	margin-right: 5px;
+	padding: 3px;
+	color: beige;
+	font-size: 12px;
+	background-color: #FF3A0A;
+}
+
+#main {
+	box-sizing: border-box;
+	width: 100vw;
+	height: 100%;
+	background-color: #fff;
+}
+
+#title>input {
+	box-sizing: border-box;
+	padding-left: 15px;
+	width: 100vw;
+	height: 30px;
+	border: none;
+	font-size: 16px;
+}
+
+#title>input:focus {
+	border: none;
+	outline: none;
+}
+
+#editor {
+	width: 100vw;
+	height: calc(100% - 30px);
+	border: none;
+	font-size: 14px;
+	background-color: #fff;
+}
+
+#toolbar {
+	box-sizing: border-box;
+	width: 100vw;
+	height: 40px;
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	padding: 0;
+	margin: 0;
+	border: none;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-evenly;
+	align-items: center;
+	background-color: #fff;
+	z-index: 999;
+}
+
+#toolbar>.ql-formats {
+	width: 100vw;
+	height: 40px;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-evenly;
+	align-items: center;
+}
+
+.helper {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	top: -999px;
+	left: -999px;
+
+}

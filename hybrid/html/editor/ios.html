@@ -6,115 +6,7 @@
 			content="'width=device-width, initial-scale=1.0,minimum-scale=1.0, maximum-scale=1.0, user-scalable=no'">
 		<title>富文本编辑器</title>
 		<link rel="stylesheet" href="../Quill/quill.snow.css" />
-		<style>
-			* {
-				padding: 0;
-				margin: 0;
-			}
-
-			html,
-			body,
-			#app {
-				width: 100vw;
-				height: 100%;
-			}
-
-			#app {
-				background-color: firebrick;
-			}
-
-			#header {
-				position: fixed;
-				top: 0;
-				left: 0;
-				right: 0;
-				background-color: #fff;
-				z-index: 999;
-			}
-
-			#status-bar {
-				background-color: #fff;
-			}
-
-			#nav-bar {
-				display: flex;
-				flex-direction: row;
-				justify-content: space-between;
-				align-items: center;
-				background-color: #fff;
-			}
-
-			#nav-bar>#backtrack {
-				display: flex;
-				flex-direction: row;
-				justify-content: space-between;
-				align-items: center;
-				padding-left: 5px;
-			}
-
-			#nav-bar>#publish {
-				display: flex;
-				flex-direction: row;
-				justify-content: space-between;
-				align-items: center;
-				padding-right: 5px;
-			}
-
-			#main {
-				width: 90vw;
-				height: 100%;
-				box-sizing: border-box;
-				background-color: teal;
-			}
-
-			#main>#title {
-				/* height: 30px; */
-				/* background-color: seagreen; */
-			}
-
-			#main>#editor {
-				width: 80vw;
-				background-color: beige;
-				border: none;
-				/* padding-bottom: 50px; */
-				overflow: auto;
-			}
-
-			#toolbar {
-				box-sizing: border-box;
-				width: 100vw;
-				height: 40px;
-				position: fixed;
-				bottom: 0;
-				left: 0;
-				right: 0;
-				padding: 0;
-				margin: 0;
-				border: none;
-				display: flex;
-				flex-direction: row;
-				justify-content: space-evenly;
-				align-items: center;
-				background-color: #282C35;
-				z-index: 999;
-			}
-
-			#toolbar>.ql-formats {
-				width: 100vw;
-				height: 40px;
-				padding: 0;
-				margin: 0;
-				display: flex;
-				flex-direction: row;
-				justify-content: space-evenly;
-				align-items: center;
-				background-color: #ffffff;
-			}
-
-			.scroll-box {
-				height: 200%;
-			}
-		</style>
+		<link rel="stylesheet" href="./css/editor-ios.css">
 	</head>
 	<body>
 		<!-- Vue绑定的容器 -->
@@ -126,34 +18,33 @@
 				<!-- 顶部导航栏 -->
 				<div id="nav-bar" :style="{ height: navBarHeight + 'px' }">
 					<!-- 左侧返回键 -->
-					<div id="backtrack">
+					<div id="backtrack" @click="backtrack">
 						<img src="../image/back.png" width="20" alt="" srcset="">
 					</div>
+					<div class="tip">{{tip}}</div>
 					<!-- 右侧发布 -->
-					<div id="publish">
+					<div id="publish" @click="publish">
 						<!-- 发布 -->
-						<img src="../image/publish.png" width="20" alt="" srcset="">
+						<label for="publish-icon">发布</label>
+						<img id="publish-icon" src="../image/publish.png" width="20" alt="" srcset="">
 					</div>
 				</div>
 			</div>
-
 			<!-- 正文 -->
-			<div id="main" class="scroll-box" @touchstart="touchstart" @touchend="touchend"
+			<div id="main" class="scroll-box"
 				:style="{ 'padding-bottom': '40px', 'padding-top': (statusBarHeight +  navBarHeight) + 'px' }">
-				<!--这个是内容占位，用于顶部内容区增高-->
-				<div id="prefix-placeholder"></div>
-
 				<!-- 标题 -->
-				<div id="title">标题</div>
+				<div id="title" @focusin="titleFocusin('title')">
+					<input type="text" v-model="title" placeholder="标题">
+				</div>
 				<!-- Quill绑定的容器 -->
-				<div id="editor"></div>
-
-				<!--这个是内容占位，用于底部内容区增高-->
-				<div id="suffix-placeholder"></div>
+				<div id="editor" ref="editorRef" @touchstart="touchstart" @touchend="touchend"
+					@focusin="editorFocusin('editor')" @focusout="editorFocusout">
+				</div>
 			</div>
 
 			<!-- Quill绑定的工具栏容器 -->
-			<div id="toolbar">
+			<div id="toolbar" v-show="showToolbar">
 				<span class="ql-formats">
 					<button class="ql-bold"></button>
 					<button class="ql-italic"></button>
@@ -161,19 +52,22 @@
 					<button class="ql-header" value="1"></button>
 					<button class="ql-header" value="2"></button>
 					<button class="ql-blockquote"></button>
-					<!-- <select class="ql-align"></select> -->
 					<button class="ql-link"></button>
-					<!-- <button @click="uploadImageClick">图片</button> -->
-					<!-- <button @click="uploadPicShow=true,editType=1"><i class="iconfont icon-image"></i></button> -->
-					<!-- <input type="file" accept="image/*"> -->
+					<button class="ql-image"></button>
+					<button class="undo" @click="undo">
+						<img src="../image/undo.png" width="18" alt="" srcset="">
+					</button>
+					<button class="redo" @click="redo">
+						<img src="../image/redo.png" width="18" alt="" srcset="">
+					</button>
 				</span>
 			</div>
-
+			<button class="helper" ref="helperRef" @click="helperClick" tabindex=999 @focusin="helperFocusin"
+				@touchstart="touchstart" @touchend="touchend">helper</button>
 		</div>
 		<!-- 引入vue2 -->
-		<script type="text/javascript" src="../vue.js"></script>
-		<!-- 引入axios -->
-		<script type="text/javascript" src="../axios.js"></script>
+		<script type="text/javascript" src="../vue.min.js"></script>
+
 		<!-- 引入webview -->
 		<script type="text/javascript" src="../uni.webview.1.5.4.js"></script>
 		<!-- 引入quill -->
@@ -183,16 +77,23 @@
 			////////////////////////////////////////////////////////
 			//                        Vue                         //
 			////////////////////////////////////////////////////////
-
-			// todo 关闭生产提示，开发完成后应该使用vue.min.js
-			// Vue.config.productionTip = false;
 			var that;
 			var app = new Vue({
 				el: '#app',
 				data: {
-					statusBarHeight: 0,
-					navBarHeight: 0,
-
+					statusBarHeight: 30,
+					navBarHeight: 44,
+					title: "",
+					content: "",
+					coverImage: null,
+					showToolbar: false,
+					focusedElement: null,
+					currentImageUrl: null,
+					selectionIndex: 0,
+					tip: "提示",
+					editorDom: null,
+					editorScrollEventEnable: false,
+					editorScrollType: "api", // api || user
 				},
 				created() {
 					that = this;
@@ -200,36 +101,155 @@
 				},
 				destroyed() {
 					that = this;
-					document.body.removeEventListener('touchmove', this.preventDefault)
 					console.log("vue实例销毁完成");
 				},
 				mounted() {
-					softKeyBoardAttachToolbar();
-
-					// 1. 页面加载后，监听touchmove事件，并阻止它冒泡。以实现禁止页面滚动
+					// 全局禁止滚动
 					document.body.addEventListener('touchmove', this.preventDefault, {
 						passive: false
 					})
-					// // 2. 当软键盘弹起时，resize会变化。如果有滚动，则置为0
-					// window.visualViewport.addEventListener('resize', () => {
-					// 	if (document.documentElement.scrollTop !== 0) {
-					// 		document.documentElement.scrollTop = 0
-					// 	}
-					// })
-
+					// 吸附修复
+					forkFixed();
 				},
 				methods: {
 					// 阻止事件冒泡
 					preventDefault(event) {
+						that.tip = "touch move，触发--阻止默认事件"
 						event.preventDefault()
 					},
-					touchend() {
-						document.body.addEventListener('touchmove', this.preventDefault, {
-							passive: false
-						})
+					touchstart(event) {
+						// alert("touchstart")
+						// 只有内容超高后，才解锁滚动
+						let editorContainer = window.document.querySelector(".ql-editor");
+						if (editorContainer.getBoundingClientRect().height + 1 < editorContainer.scrollHeight) {
+							document.body.removeEventListener('touchmove', this.preventDefault);
+						}
+						if (that.editorScrollEventEnable) {
+							that.tip = "编辑区滚动事件已开启"
+						} else {
+							let qlEditor = window.document.getElementsByClassName("ql-editor")[0];
+							that.editorDom = qlEditor;
+							let oldScroll = qlEditor.scroll;
+							if (oldScroll instanceof Function) {
+								qlEditor.addEventListener("scroll", function(event) {
+									that.editorScrollType || (that.editorScrollType = "user")
+									qlEditorScrollTop = qlEditor.scrollTop;
+									qlEditorHeight = qlEditor.getBoundingClientRect().height;
+									qlEditorScrollHeight = qlEditor.scrollHeight;
+									that.tip = qlEditorScrollTop + "\t" + qlEditorHeight + "\t" +
+										qlEditorScrollHeight;
+									if (qlEditorScrollTop <= 1 || (qlEditorScrollTop + qlEditorHeight + 1) >=
+										qlEditorScrollHeight) {
+										// 到达滚动到上边界或下边界
+										that.tip = "scroll to edge"
+										if (that.editorScrollType === "user") {
+											that.$refs.helperRef.click();
+											that.$refs.helperRef.focus();
+										}
+									}
+								})
+							}
+							that.editorScrollEventEnable = true;
+						}
 					},
-					touchstart() {
-						document.body.removeEventListener('touchmove', this.preventDefault)
+					touchend() {
+						window.document.body.addEventListener('touchmove', this.preventDefault, {
+							passive: false
+						});
+					},
+					editorFocusin(focusedElement) {
+						this.showToolbar = true;
+						this.focusedElement = focusedElement;
+						that.editorDom = window.document.getElementsByClassName("ql-editor")[0];
+						that.editorScrollType = "api"
+						let scrollSize;
+						setTimeout(() => {
+							// 如果是工具栏，不滚动
+
+							// 上边缘 
+							if (that.editorDom.scrollTop <= -999) {
+								return
+							} else if ((that.editorDom.scrollTop + that.editorDom.getBoundingClientRect()
+									.height <= that.editorDom.scrollHeight) && (that.editorDom.scrollTop +
+									that.editorDom.getBoundingClientRect().height + 40 >= that.editorDom
+									.scrollHeight
+								)) {
+								// 距离下边缘【0，40】px
+								const textRegexp = /.*(<p><br><\/p>){3}$/;
+								// 保存当前选区
+								let currentSelection = quill.getSelection(true);
+								let quillElement = window.document.querySelector("#editor")
+									.firstElementChild;
+								let quillInnerHTML = quillElement.innerHTML;
+								// 1.内容过少时，不添加；2.光标后面没有三个连续空行，追加
+								// if (!textRegexp.test(quillInnerHTML)) {
+								// let newText = quill.getText() + "\n\n\n"
+								// quill.setText(newText);
+								quillElement.innerHTML = quillInnerHTML + "<p><br></p><p><br></p><p><br></p>"
+								// }
+
+								// 修复光标位置
+								quill.setSelection(currentSelection.index, currentSelection.length);
+								scrollSize = that.editorDom.scrollTop + 50;
+							}
+							// 滚动
+							scrollSize || (scrollSize = that.editorDom.scrollTop + 40);
+							that.editorDom.scrollTo({
+								top: scrollSize,
+								behavior: 'smooth'
+							})
+							setTimeout(() => {
+								that.editorScrollType = null;
+							}, 500)
+						}, 500)
+					},
+					editorFocusout() {
+
+					},
+					titleFocusin(focusedElement) {
+						this.showToolbar = false;
+						this.focusedElement = focusedElement;
+						console.log("editorFocusout", focusedElement);
+					},
+					keyboardUp() {
+						console.log("键盘弹起", this.focusedElement);
+						if (this.focusedElement === 'title') {
+							this.showToolbar = false;
+						} else if (this.focusedElement === 'editor') {
+							this.showToolbar = true;
+						}
+					},
+					keyboardDown() {
+						console.log("键盘收起");
+					},
+					backtrack() {
+						uni.navigateBack();
+					},
+					publish() {
+						this.content = document.getElementById('editor').firstChild.innerHTML;
+						alert(JSON.stringify({
+							title: this.title,
+							content: this.content,
+							coverImage: this.coverImage,
+						}))
+					},
+					undo() {
+						quill.history.undo();
+					},
+					redo() {
+						quill.history.redo();
+					},
+					helperClick() {
+						setTimeout(() => {
+							console.log("click helper");
+							that.tip = "点击了helper"
+						}, 500)
+					},
+					helperFocusin() {
+						setTimeout(() => {
+							console.log("helper focusin");
+							that.tip = "helper focusin"
+						}, 500)
 					}
 				}
 			});
@@ -237,11 +257,11 @@
 			////////////////////////////////////////////////////////
 			// 桥接就绪后，从uniapp中获取：状态栏高度、顶部导航栏高度 //
 			////////////////////////////////////////////////////////
-			document.addEventListener('UniAppJSBridgeReady', function() {
+			window.document.addEventListener('UniAppJSBridgeReady', function() {
 				// h5向uniapp传递数据，在uniapp中利用@message中的方法接收
 				uni.postMessage({
 					data: {
-						action: 'postMessage'
+						action: 'statusBarAndNavBarHeight'
 					}
 				});
 				uni.getEnv(function(res) {
@@ -250,12 +270,9 @@
 			});
 			// 接受uniapp传递进来的数据
 			function getUniAppMessage(data) {
-				// alert(JSON.stringify(data))
 				console.log("getUniAppMessage data:", JSON.stringify(data));
 				that.statusBarHeight = data[0]["statusBarHeight"];
 				that.navBarHeight = data[0]["navBarHeight"];
-				// alert(JSON.stringify(that.statusBarHeight));
-				// alert(JSON.stringify(that.navBarHeight));
 			}
 
 			////////////////////////////////////////////////////////
@@ -263,22 +280,57 @@
 			////////////////////////////////////////////////////////
 			var quill = new Quill('#editor', {
 				modules: {
-					toolbar: '#toolbar'
+					toolbar: '#toolbar',
+					history: {
+						delay: 2000,
+						maxStack: 500
+					}
 				},
 				placeholder: '开始书写',
-				theme: 'snow'
+				theme: 'snow',
 			});
 			quill.on('text-change', function(delta, oldDelta, source) {
 				//实时获取光标位置
 				let selection = quill.getSelection(true);
 				app.selectionIndex = selection.index;
+				console.log('实时获取光标位置:', app.selectionIndex);
+				that.editorScrollType = "api"
+				setTimeout(() => {
+					that.editorScrollType = null;
+				}, 100)
 			});
 
-			////////////////////////////////////////////////////////
-			//                   工具栏吸附软键盘                   //
-			////////////////////////////////////////////////////////
+			let toolbar = quill.getModule('toolbar')
+			// 自定义image处理逻辑
+			toolbar.addHandler('image', () => {
+				console.log("自定义image处理器，正在与uniapp通讯");
+				// 与uniapp通讯
+				uni.postMessage({
+					data: {
+						action: 'chooseImage'
+					}
+				});
+			});
 
-			function softKeyBoardAttachToolbar() {
+			function chooseImageNotice(data) {
+				console.log("收到图片信息:", JSON.stringify(data));
+				that.currentImageUrl = data[0]["imageUrl"];
+				// 上传图片完成，准备展示到编辑器
+				console.log("上传图片完成，准备展示到编辑器", that.currentImageUrl);
+				//调用insertEmbed 将图片插入到编辑器
+				let selection = quill.getSelection(true);
+				console.log("selection:", JSON.stringify(selection));
+				quill.insertText(selection.index, " \n");
+				quill.insertEmbed(selection.index, "image", that.currentImageUrl);
+				quill.insertText(selection.index, " \n");
+				that.coverImage || (that.coverImage = that.currentImageUrl)
+			};
+
+
+			////////////////////////////////////////////////////////
+			//                     模拟fixed                      //
+			////////////////////////////////////////////////////////
+			function forkFixed() {
 				// 维护fixed，兼容ios、android
 				var headerBar = document.getElementById("header");
 				var bottomBar = document.getElementById("toolbar");
@@ -296,97 +348,84 @@
 					headerBar.style.transform = 'translate(' + offsetLeft + 'px,' + visualViewport.offsetTop + 'px) ' +
 						'scale(' + 1 / visualViewport.scale + ')';
 				}
-				// 销毁时，记得移除绑定事件
-				window.visualViewport.addEventListener('scroll', visualViewportHandler);
-				window.visualViewport.addEventListener('resize', visualViewportHandler);
 
-				// 滑动到上下边缘时，失去焦点
-				let Container = document.getElementById("editor");
-				let content = document.getElementById("main").children[0];
-				if ((content.scrollTop === 0 || content.scrollTop + content.clientHeight >= content.scrollHeight)) {
-					Container.blur();
+				function visualViewportResize() {
+					visualViewportHandler();
 				}
+
+				function visualViewportScroll() {
+					let editor = document.querySelector("#editor")
+					that.tip = "虚拟视口发生滚动"
+					// 点击helper
+					that.$refs.helperRef.click();
+					visualViewportHandler();
+				}
+				// 销毁时，记得移除绑定事件
+				window.visualViewport.addEventListener('resize', visualViewportResize);
+				window.visualViewport.addEventListener('scroll', visualViewportScroll);
 			}
 
+			////////////////////////////////////////////////////////
+			//                       键盘事件                      //
+			////////////////////////////////////////////////////////
+			/**
+			 * 兼容Android、iOS各浏览器
+			 * H5键盘监控弹出（KeyboardUp）、收起（KeyboardDown）事件定义
+			 * 用法：
+			 * 与click事件的绑定用法无异，如：
+			    window.addEventListener("KeyboardUp",function() {
+			        //键盘弹起来了
+			    },false);
+			    window.addEventListener("KeyboardDown",function() {
+			        //键盘收起来了
+			    },false);
+			 *
+			 */
+			window.addEventListener("KeyboardUp", function() {
+				//键盘弹起来了
+				that.keyboardUp();
+			}, false);
+			window.addEventListener("KeyboardDown", function() {
+				//键盘收起来了
+				that.keyboardDown();
+			}, false);
+			(function(window) {
+				if (!window || !navigator) return;
+				var u = navigator.userAgent;
+				var isAndroid = u.indexOf('Android') > -1 || u.indexOf('Adr') > -1;
+				var isiOS = !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/);
 
-			// var page = document.querySelector('#main')
-			// var prePlace = document.querySelector('#prefix-placeholder')
-			// var sufPlace = document.querySelector('#suffix-placeholder')
-			// var fixedEle = document.querySelector('#header')
-			// var currentInput = null // 当前聚焦的输入框
-			// var keyboardHeight = 0 // 软键盘高度
-			// // 初始化的时候就要记录了，因为这里有个很奇怪的现象，ios软键盘出现后，window.innerHeight会随着webview自身的滚动而变化，用document.documentElement.offsetHeight和window.visualViewport.height 也是，不知道是什么影响了。
-			// var height = window.innerHeight
-			// var startMove = false // 记录是否发生了滑动手势
+				var KeyboardUpEvent = document.createEvent("KeyboardEvent");
+				KeyboardUpEvent.initEvent("KeyboardUp", true, true);
 
-			// function handleTouchmove() {
-			// 	startMove = true
-			// 	page.addEventListener('touchend', handleTouchend)
-			// }
+				var KeyboardDownEvent = document.createEvent("KeyboardEvent");
+				KeyboardDownEvent.initEvent("KeyboardDown", true, true);
 
-			// function handleTouchend() {
-			// 	startMove = false
-			// 	page.removeEventListener('touchend', handleTouchend)
-			// }
-
-			// // webview发生平移，则及时更新fixed元素的定位
-			// function handleWdinowScroll() {
-			// 	// 当平移时H5的内容已经滚动到顶部或底部，且 是因为发生滑动手势引起的scroll事件，此时就输入框失焦收起软键盘
-			// 	// 聚焦到输入框也会引起scroll事件，所以要加startMove区分开是滑动手势引起的
-			// 	if ((page.scrollTop === 0 || page.scrollTop + page.clientHeight >= page.scrollHeight) && startMove) {
-			// 		return triggerBlur()
-			// 	}
-			// 	// 这里计算一次是为了这里可能比handleFocus先执行
-			// 	const max = keyboardHeight || height - window.visualViewport.height
-			// 	// IOS回弹效果时不要改变定位
-			// 	if (window.pageYOffset <= max && window.pageYOffset >= 0) {
-			// 		// 聚焦输入框引起的平移
-			// 		// fixedEle.style.top = window.pageYOffset + 'px'
-			// 	}
-			// }
-
-			// // 当页面里的输入框聚焦时（随后会出现软键盘）
-			// function handleFocusin(e) {
-			// 	var el = e || window.event
-			// 	currentInput = el.target
-			// 	// 延迟是为了确保软键盘出来后才开始计算，因为软键盘出来有个过程动画
-			// 	setTimeout(() => {
-			// 		// 计算过就不用再计算了，一般软键盘的高度是固定的，这样做还有一个顾虑：有些情况下，滚动的时候window.innerHeight和visualViewport.height还会变化，不能如实反馈，因此减少多次计算。
-			// 		keyboardHeight || (keyboardHeight = height - window.visualViewport.height)
-			// 		// 底部增高
-			// 		sufPlace.style.height = keyboardHeight - window.pageYOffset + 'px'
-			// 		// 顶部增高
-			// 		prePlace.style.height = window.pageYOffset + 'px'
-			// 		// 因为增高的缘故，需要及时更新滚动位置，保持原本理应展示的位置
-			// 		page.scrollTop += window.pageYOffset
-			// 	}, 400)
-			// 	// 因为上一个聚焦的输入框因为失焦导致top置为0了，如果新聚焦的输入框不会触发webview平移，则沿用当时的位移就好了
-			// 	// fixedEle.style.top = window.pageYOffset + 'px'
-			// 	// 添加滚动监听，为了软键盘出现 以及 从一个聚焦输入框聚焦到另外一个输入框时， 重新定位fixed元素（其实这里不用滚动事件监听变化也可以用setTimeout来更新定位）
-			// 	window.addEventListener('scroll', handleWdinowScroll)
-			// 	page.addEventListener('touchmove', handleTouchmove)
-			// }
-
-			// // 主动失焦
-			// function triggerBlur() {
-			// 	currentInput && currentInput.blur()
-			// }
-
-			// // 失焦时，重置一些数据
-			// function handleBlur() {
-			// 	currentInput = null
-			// 	// 增高的都恢复到原样，即没有高度
-			// 	sufPlace.style.height = 0
-			// 	prePlace.style.height = 0
-			// 	fixedEle.style.top = 0
-			// 	startMove = false
-			// 	window.removeEventListener('scroll', handleWdinowScroll)
-			// 	page.removeEventListener('touchmove', handleTouchmove)
-			// }
-
-			// page.addEventListener('focusin', handleFocusin)
-			// page.addEventListener('focusout', handleBlur)
-			// })
+				if (isAndroid) {
+					console.log("键盘处理器：当前为安卓手机");
+					var originalHeight = document.documentElement.clientHeight || document.body.clientHeight;
+					window.onresize = function() {
+						var resizeHeight = document.documentElement.clientHeight || document.body.clientHeight;
+						if (resizeHeight - 0 < originalHeight - 0) {
+							document.dispatchEvent(KeyboardUpEvent);
+						} else {
+							document.dispatchEvent(KeyboardDownEvent);
+						}
+					}
+				} else if (isiOS) {
+					console.log("键盘处理器：当前为苹果手机");
+					document.body.addEventListener('focusin', () => {
+						// alert("键盘，来！！！")
+						document.dispatchEvent(KeyboardUpEvent);
+					})
+					document.body.addEventListener('focusout', () => {
+						// alert("键盘，走！！！")
+						document.dispatchEvent(KeyboardDownEvent);
+					})
+				} else {
+					throw "无法识别浏览器机型，请检查navigator.userAgent是否被重新定义过."
+				}
+			})(window);
 		</script>
 	</body>
 </html>

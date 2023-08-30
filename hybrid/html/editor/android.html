@@ -165,10 +165,10 @@
 					<button class="ql-blockquote"></button>
 					<button class="ql-link"></button>
 					<button class="ql-image"></button>
-					<button class="ql-undo" @click="undo">
+					<button class="undo" @click="undo">
 						<img src="../image/undo.png" width="18" alt="" srcset="">
 					</button>
-					<button class="ql-redo" @click="redo">
+					<button class="redo" @click="redo">
 						<img src="../image/redo.png" width="18" alt="" srcset="">
 					</button>
 				</span>
@@ -176,7 +176,7 @@
 
 		</div>
 		<!-- 引入vue2 -->
-		<script type="text/javascript" src="../vue.js"></script>
+		<script type="text/javascript" src="../vue.min.js"></script>
 		<!-- 引入axios -->
 		<script type="text/javascript" src="../axios.js"></script>
 		<!-- 引入webview -->
@@ -195,15 +195,14 @@
 			var app = new Vue({
 				el: '#app',
 				data: {
-					statusBarHeight: 0,
-					navBarHeight: 0,
+					statusBarHeight: 30,
+					navBarHeight: 44,
 					title: "",
 					content: "",
 					showToolbar: false,
-					currentCursor: null,
-					imageResource: null,
+					focusedElement : null,
+					currentImageUrl: null,
 					selectionIndex: 0,
-
 				},
 				created() {
 					that = this;
@@ -217,24 +216,24 @@
 
 				},
 				methods: {
-					editorFocusin(currentCursor) {
+					editorFocusin(focusedElement ) {
 						this.showToolbar = true;
-						this.currentCursor = currentCursor;
-						console.log("editorFocusin", currentCursor, "selection.index:", this.selectionIndex);
+						this.focusedElement  = focusedElement ;
+						console.log("editorFocusin", focusedElement , "selection.index:", this.selectionIndex);
 					},
 					editorFocusout() {
 						console.log("editorFocusout");
 					},
-					titleFocusin(currentCursor) {
+					titleFocusin(focusedElement ) {
 						this.showToolbar = false;
-						this.currentCursor = currentCursor;
-						console.log("editorFocusout", currentCursor);
+						this.focusedElement  = focusedElement ;
+						console.log("editorFocusout", focusedElement );
 					},
 					keyboardUp() {
-						console.log("键盘弹起", this.currentCursor);
-						if (this.currentCursor === 'title') {
+						console.log("键盘弹起", this.focusedElement );
+						if (this.focusedElement  === 'title') {
 							this.showToolbar = false;
-						} else if (this.currentCursor === 'editor') {
+						} else if (this.focusedElement  === 'editor') {
 							this.showToolbar = true;
 						}
 					},
@@ -319,16 +318,15 @@
 
 			function chooseImageNotice(data) {
 				console.log("收到图片信息:", JSON.stringify(data));
-				that.imageResource = data[0]["imageUrl"];
+				that.currentImageUrl = data[0]["imageUrl"];
 				// 上传图片完成，准备展示到编辑器
-				console.log("上传图片完成，准备展示到编辑器", that.imageResource);
+				console.log("上传图片完成，准备展示到编辑器", that.currentImageUrl);
 				//调用insertEmbed 将图片插入到编辑器
-				selection = quill.getSelection(true);
-				console.log("selection:", selection);
+				let selection = quill.getSelection(true);
+				console.log("selection:", JSON.stringify(selection));
 				quill.insertText(selection.index, " \n");
-				quill.insertEmbed(selection.index, "image", that.imageResource);
+				quill.insertEmbed(selection.index, "image", that.currentImageUrl);
 				quill.insertText(selection.index, " \n");
-
 			};
 
 			////////////////////////////////////////////////////////

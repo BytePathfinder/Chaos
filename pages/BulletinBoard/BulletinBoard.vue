@@ -93,9 +93,14 @@
 			let platform = uni.getSystemInfoSync().platform;
 			console.log("平台：", JSON.stringify(uni.getSystemInfoSync()))
 			if (platform === "ios") {
+				// ios
 				this.webUrl = "/hybrid/html/editor/ios.html";
 			} else if (platform === "android") {
+				// android
 				this.webUrl = "/hybrid/html/editor/android.html";
+			} else {
+				// h5
+				this.webUrl = "/hybrid/html/editor/ios.html";
 			}
 
 		},
