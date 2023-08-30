@@ -26,7 +26,7 @@
 			"enablePullDownRefresh": true
 		}
 	}, {
-		"path": "pages/BulletinBoard/BulletinBoard",
+		"path": "pages/PublishPlatform/ArticleList",
 		"style": {
 			"enablePullDownRefresh": false,
 			"navigationStyle": "custom"
